@@ -171,4 +171,10 @@ Argument HOST is the mkr json in plist form."
 
 (provide 'helm-mkr)
 
+;; Local Variables:
+;; byte-compile-warnings: (not obsolete)
+;; coding: utf-8
+;; indent-tabs-mode: nil
+;; End:
+
 ;;; helm-mkr.el ends here
