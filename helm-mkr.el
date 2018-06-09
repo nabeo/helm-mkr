@@ -147,7 +147,7 @@ Argument HOST is the mkr json in plist form."
 
 ;;;###autoload
 (defun helm-mkr ()
-  "Show helm with a table of aws information."
+  "Show helm with a table of host information."
   (interactive)
   (let ((choices (mkr-get-hosts)))
     (helm
