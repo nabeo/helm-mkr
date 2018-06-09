@@ -151,18 +151,19 @@ Argument HOST is the mkr json in plist form."
   (interactive)
   (let ((choices (mkr-get-hosts)))
     (helm
-     :buffer "*helm-mkr*"
-     :sources `(
-                 (name . "Hosts")
-                 (candidates . ,choices)
-                 (action . (
-                             ("Copy hostname" .
-                               (lambda (host-json)
-                                 (x-select-text (mkr-get-name-from-host host-json))))
-                             ("Browse mackerel.io" .
-                               (lambda (host-json)
-                                 (mkr-browse-host host-json)))
-                             )))))
+      :buffer "*helm-mkr*"
+      :sources `(
+                  (name . "Hosts")
+                  (candidates . ,choices)
+                  (candidate-number-limit . 99999)
+                  (action . (
+                              ("Copy hostname" .
+                                (lambda (host-json)
+                                  (x-select-text (mkr-get-name-from-host host-json))))
+                              ("Browse mackerel.io" .
+                                (lambda (host-json)
+                                  (mkr-browse-host host-json)))
+                              )))))
   )
 
 (provide 'helm-mkr)
