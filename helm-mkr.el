@@ -160,6 +160,9 @@ Argument HOST is the mkr json in plist form."
                               ("Copy hostname" .
                                 (lambda (host-json)
                                   (x-select-text (mkr-get-name-from-host host-json))))
+                              ("Copy HostId" .
+                                (lambda (host-json)
+                                  (x-select-text (mkr-get-id-from-host host-json))))
                               ("Browse mackerel.io" .
                                 (lambda (host-json)
                                   (mkr-browse-host host-json)))
