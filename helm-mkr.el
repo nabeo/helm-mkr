@@ -108,7 +108,7 @@ Argument HOST is the mkr json in plist form."
                           'helm-mkr-host-status-standby)
                         ((string= status "maintenance")
                           'helm-mkr-host-status-maintenance)
-                        ((string= status "pwoeroff")
+                        ((string= status "poweroff")
                           'helm-mkr-host-status-poweroff)
                         (t
                           'helm-mkr-host-status-working)))
