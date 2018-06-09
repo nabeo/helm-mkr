@@ -68,9 +68,39 @@
   "Face used for poweroff host in `helm-mkr'."
   :group 'helm-mkr-faces)
 
+(defface helm-mkr-alert-status-critical
+  '((t :inhertit font-lock-builtin-face
+      :slant bold
+      :foreground "red"))
+  "Face used for critical alert in `helm-mkr'."
+  :group 'helm-mkr-faces)
+
+(defface helm-mkr-alert-status-warning
+  '((t :inhertit font-lock-builtin-face
+      :foreground "orange"))
+  "Face used for warning alert in `helm-mkr'."
+  :group 'helm-mkr-faces)
+
+(defface helm-mkr-alert-status-unknown
+  '((t :inhertit font-lock-builtin-face
+      :slant italic
+      :foreground "gray"))
+  "Face used for unknown alert in `helm-mkr'."
+  :group 'helm-mkr-faces)
+
+(defface helm-mkr-alert-status-default
+  '((t :inhertit font-lock-builtin-face
+      :foreground "gray"))
+  "Face used for default alert in `helm-mkr'."
+  :group 'helm-mkr-faces)
+
 (defvar mkr-hosts-command
   "mkr hosts"
   "Command to list hosts.")
+
+(defvar mkr-alerts-command
+  "mkr alerts"
+  "Command to list alerts.")
 
 (defvar mkr-orgs
   "default"
@@ -83,12 +113,26 @@
       (shell-command mkr-hosts-command (current-buffer) nil)
       (buffer-substring-no-properties (point-min) (point-max)))))
 
+(defun mkr-run-alerts-command ()
+  "Execute mkr alerts."
+  (let ((mkr-result-buffer (generate-new-buffer-name "*mkr-alerts*")))
+    (with-temp-buffer
+      (shell-command mkr-alerts-command (current-buffer) nil)
+      (buffer-substring-no-properties (point-min) (point-max)))))
+
 (defun mkr-parse-hosts-list (input)
   "Extract hosts list.
 Argument INPUT json input in string from."
   (let* ((json-object-type 'plist)
           (mkr-hosts-json (json-read-from-string input)))
     mkr-hosts-json))
+
+(defun mkr-parse-alerts-list (input)
+  "Extract alerts list.
+Artgument INPUT json input in straing form."
+  (let* ((json-object-type 'plist)
+          (mkr-alerts-json (json-read-from-string input)))
+    mkr-alerts-json))
 
 (defun mkr-format-hosts-helm-row (host)
   "Constracts a human-readable string of a host.
@@ -115,6 +159,39 @@ Argument HOST is the mkr json in plist form."
               " | " (format "%11s" status)
               " | " create-date)))
     (cons format-string host)))
+
+(defun mkr-format-alerts-helm-row (alert)
+  "Constracts a human-readable string of a host.
+show: <create date time>, <alert status>, <hostid>, <message>.
+Argument ALERT is the mkr json in plist form."
+  (let* (
+          (id (plist-get alert :id))
+          (status (plist-get alert :status))
+          (host-id (plist-get alert :hostId))
+          (message (cond
+                     ((plist-member alert :message)
+                       (plist-get alert :message))
+                     ((plist-member alert :value)
+                       (plist-get alert :value))))
+          (opened-date-time (format-time-string "%Y-%m-%d %H:%M:%S"
+                              (seconds-to-time
+                                (plist-get alert :openedAt))))
+          (format-string
+            (concat
+              opened-date-time " | "
+              (propertize (format "%8s" status)
+                'face (cond
+                        ((string= status "WARNING")
+                          'helm-mkr-alert-status-warning)
+                        ((string= status "CRITICAL")
+                          'helm-mkr-alert-status-critical)
+                        ((string= status "UNKNOWN")
+                          'helm-mkr-alert-status-unknown)
+                        (t
+                          'helm-mkr-alert-status-default)))
+              " | " host-id
+              " | " (format "%30s" message))))
+    (cons format-string alert)))
 
 (defun mkr-sort-helm-rows (a b)
   "Compare results from `mkr-format-hosts-helm-row' A and B."
@@ -145,6 +222,14 @@ Argument HOST is the mkr json in plist form."
           )
     hosts-info-list))
 
+(defun mkr-get-alerts ()
+  "Create alert list from mackerel.io."
+  (let* (
+          (mkr-command-result (mkr-run-alerts-command))
+          (alerts-info-list (mkr-parse-alerts-list mkr-command-result))
+          (alerts-info-list (mapcar 'mkr-format-alerts-helm-row alerts-info-list)))
+    alerts-info-list))
+
 ;;;###autoload
 (defun helm-mkr ()
   "Show helm with a table of host information."
@@ -168,6 +253,22 @@ Argument HOST is the mkr json in plist form."
                                   (mkr-browse-host host-json)))
                               )))))
   )
+
+(defun helm-mkr-alert ()
+  "Show helm with a table of alert infomation."
+  (interactive)
+  (let ((choices (mkr-get-alerts)))
+    (helm
+      :buffer "*helm-mkr-alert*"
+      :sources `(
+                  (name . "Alerts")
+                  (candidates . ,choices)
+                  (candidate-number-limit . 99999)
+                  (action . (
+                              ("Browse mackerel.io" .
+                                (lambda (alert-json)
+                                  (mkr-browse-alert alert-josn)))))
+                  ))))
 
 (provide 'helm-mkr)
 
