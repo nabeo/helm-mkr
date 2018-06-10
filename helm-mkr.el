@@ -196,7 +196,9 @@ Argument HOST is the mkr json in plist form."
           (create-date (car (split-string create-at "T")))
           (format-string
             (concat
-              (propertize (format "%-30s" (s-truncate 30 name))
+              name
+              " "
+              (propertize (format "%s" status)
                 'face (cond
                         ((string= status "standby")
                           'helm-mkr-host-status-standby)
@@ -206,8 +208,7 @@ Argument HOST is the mkr json in plist form."
                           'helm-mkr-host-status-poweroff)
                         ((string= status "working")
                           'helm-mkr-host-status-working)))
-              " | " (format "%11s" status)
-              " | " create-date)))
+              " " create-date)))
     (cons format-string host)))
 
 (defun mkr-format-alerts-helm-row (alert)
