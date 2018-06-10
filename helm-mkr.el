@@ -108,6 +108,10 @@
   "mkr status"
   "Command to get host info.")
 
+(defvar mkr-services-command
+  "mkr services"
+  "Command to get service list.")
+
 (defvar mkr-orgs
   "default"
   "Your mackerel org name.")
@@ -124,6 +128,13 @@
   (let ((mkr-result-buffer (generate-new-buffer-name "*mkr-alerts*")))
     (with-temp-buffer
       (shell-command mkr-alerts-command (current-buffer) nil)
+      (buffer-substring-no-properties (point-min) (point-max)))))
+
+(defun mkr-run-services-command ()
+  "Execute mkr services."
+  (let ((mkr-result-buffer (generate-new-buffer-name "*mkr-services*")))
+    (with-temp-buffer
+      (shell-command mkr-services-command (current-buffer) nil)
       (buffer-substring-no-properties (point-min) (point-max)))))
 
 (defun mkr-run-status-command (host-id)
@@ -146,6 +157,13 @@ Artgument INPUT json input in straing form."
   (let* ((json-object-type 'plist)
           (mkr-alerts-json (json-read-from-string input)))
     mkr-alerts-json))
+
+(defun mkr-parse-services-list (input)
+  "Extract services list.
+Artgument INPUT json input in straing form."
+  (let* ((json-object-type 'plist)
+          (mkr-services-json (json-read-from-string input)))
+    mkr-services-json))
 
 (defun mkr-get-host-status-from-id (host-id)
   "Get host status from HOST-ID."
@@ -250,6 +268,20 @@ Argument ALERT is the mkr json in plist form."
     (cons format-string alert)
     ))
 
+(defun mkr-format-services-helm-row (service)
+  "Constracts a human-readable string of a host.
+show: <name>.
+Argument SERVICE is the mkr json in plist form."
+  (let* (
+          (name (plist-get service :name))
+          (memo (cond
+                  ((plist-member service :memo)
+                    (plist-get service :memo))))
+          (format-string
+            (concat
+              name " " memo)))
+    (cons format-string service)))
+
 (defun mkr-sort-helm-rows (a b)
   "Compare results from `mkr-format-hosts-helm-row' A and B."
   (string< (downcase (car a)) (downcase (car b))))
@@ -280,6 +312,15 @@ Argument ALERT is the mkr json in plist form."
                 (plist-get alert-json :id)))
   )
 
+(defun mkr-browse-service (service-json)
+  "Browse mackerel.io from SERVICE-JSON with `browse-url-browser-function'."
+  (browse-url (concat
+                "https://mackerel.io/orgs/"
+                mkr-orgs
+                "/services/"
+                (plist-get service-json :name)))
+  )
+
 (defun mkr-get-hosts ()
   "Create host list from mackerel.io."
   (let* ((mkr-command-result (mkr-run-hosts-command))
@@ -295,6 +336,14 @@ Argument ALERT is the mkr json in plist form."
           (alerts-info-list (mkr-parse-alerts-list mkr-command-result))
           (alerts-info-list (mapcar 'mkr-format-alerts-helm-row alerts-info-list)))
     alerts-info-list))
+
+(defun mkr-get-services ()
+  "Create service list from mackerel.io."
+  (let* (
+          (mkr-command-result (mkr-run-services-command))
+          (services-info-list (mkr-parse-services-list mkr-command-result))
+          (services-info-list (mapcar 'mkr-format-services-helm-row services-info-list)))
+    services-info-list))
 
 ;;;###autoload
 (defun helm-mkr ()
@@ -348,6 +397,23 @@ Argument ALERT is the mkr json in plist form."
                                                 mkr-orgs
                                                 "/monitors#monitor="
                                                 (plist-get alert-json :monitorId)))))
+                              ))
+                  ))))
+
+(defun helm-mkr-service ()
+  "Show helm with a table of alert infomation."
+  (interactive)
+  (let ((choices (mkr-get-services)))
+    (helm
+      :buffer "*helm-mkr-alert*"
+      :sources `(
+                  (name . "Services")
+                  (candidates . ,choices)
+                  (candidate-number-limit . 99999)
+                  (action . (
+                              ("Browse Service mackerel.io" .
+                                (lambda (service-json)
+                                  (mkr-browse-service service-json)))
                               ))
                   ))))
 
