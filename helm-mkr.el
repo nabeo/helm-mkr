@@ -45,12 +45,15 @@
   :group 'helm-faces)
 
 (defface helm-mkr-host-status-working
-  '((t :inherit font-lock-builtin-face))
+  '((t
+      :inherit font-lock-builtin-face
+      :foreground "blue"))
   "Face used for working host in `helm-mkr'."
   :group 'helm-mkr-faces)
 
 (defface helm-mkr-host-status-standby
-  '((t :inhertit font-lock-builtin-face
+  '((t
+      :inhertit font-lock-builtin-face
       :foreground "green"))
   "Face used for standby host in `helm-mkr'."
   :group 'helm-mkr-faces)
@@ -70,7 +73,6 @@
 
 (defface helm-mkr-alert-status-critical
   '((t :inhertit font-lock-builtin-face
-      :slant bold
       :foreground "red"))
   "Face used for critical alert in `helm-mkr'."
   :group 'helm-mkr-faces)
@@ -102,6 +104,10 @@
   "mkr alerts"
   "Command to list alerts.")
 
+(defvar mkr-status-command
+  "mkr status"
+  "Command to get host info.")
+
 (defvar mkr-orgs
   "default"
   "Your mackerel org name.")
@@ -120,6 +126,13 @@
       (shell-command mkr-alerts-command (current-buffer) nil)
       (buffer-substring-no-properties (point-min) (point-max)))))
 
+(defun mkr-run-status-command (host-id)
+  "Execute mkr status HOST-ID."
+  (with-temp-buffer
+    (shell-command-on-region (point-min) (point-max)
+      (concat mkr-status-command " " host-id) t)
+    (buffer-string)))
+
 (defun mkr-parse-hosts-list (input)
   "Extract hosts list.
 Argument INPUT json input in string from."
@@ -133,6 +146,25 @@ Artgument INPUT json input in straing form."
   (let* ((json-object-type 'plist)
           (mkr-alerts-json (json-read-from-string input)))
     mkr-alerts-json))
+
+(defun mkr-get-host-status-from-id (host-id)
+  "Get host status from HOST-ID."
+  (let ((host-status (mkr-parse-status
+                    (mkr-run-status-command host-id))))
+    host-status))
+
+(defun mkr-parse-status (input)
+  "Extract host info.
+Artgument INPUT json input in straing form."
+  (let* ((json-object-type 'plist)
+          (mkr-host-info-json (json-read-from-string input)))
+    mkr-host-info-json))
+
+(defun mkr-get-host-name-from-host-id (host-id)
+  "Get hostname from HOST-ID."
+  (let* ((host-status (mkr-get-host-status-from-id host-id))
+          (host-name (plist-get host-status :name)))
+    host-name))
 
 (defun mkr-format-hosts-helm-row (host)
   "Constracts a human-readable string of a host.
@@ -154,7 +186,7 @@ Argument HOST is the mkr json in plist form."
                           'helm-mkr-host-status-maintenance)
                         ((string= status "poweroff")
                           'helm-mkr-host-status-poweroff)
-                        (t
+                        ((string= status "working")
                           'helm-mkr-host-status-working)))
               " | " (format "%11s" status)
               " | " create-date)))
@@ -162,24 +194,37 @@ Argument HOST is the mkr json in plist form."
 
 (defun mkr-format-alerts-helm-row (alert)
   "Constracts a human-readable string of a host.
-show: <create date time>, <alert status>, <hostid>, <message>.
+show: <create date time>, <alert status>, <hostname>, <message>.
 Argument ALERT is the mkr json in plist form."
   (let* (
           (id (plist-get alert :id))
           (status (plist-get alert :status))
           (host-id (plist-get alert :hostId))
+          (alert-type (plist-get alert :type))
+          (host-info (cond
+                       ((plist-member alert :hostId)
+                         (mkr-get-host-status-from-id host-id))))
+          (host-name (cond
+                       ((plist-member alert :hostId)
+                         (plist-get host-info :name))))
+          (host-status (cond
+                         ((plist-member alert :hostId)
+                           (plist-get host-info :status))))
           (message (cond
-                     ((plist-member alert :message)
-                       (plist-get alert :message))
-                     ((plist-member alert :value)
-                       (plist-get alert :value))))
+                     ((string= alert-type "check")
+                         (car (s-lines (plist-get alert :message))))
+                     ((string= alert-type "host")
+                       (plist-get alert :value))
+                     (t
+                       ""
+                     )))
           (opened-date-time (format-time-string "%Y-%m-%d %H:%M:%S"
                               (seconds-to-time
                                 (plist-get alert :openedAt))))
           (format-string
             (concat
-              opened-date-time " | "
-              (propertize (format "%8s" status)
+              opened-date-time " "
+              (propertize (format "%s" status)
                 'face (cond
                         ((string= status "WARNING")
                           'helm-mkr-alert-status-warning)
@@ -189,9 +234,21 @@ Argument ALERT is the mkr json in plist form."
                           'helm-mkr-alert-status-unknown)
                         (t
                           'helm-mkr-alert-status-default)))
-              " | " host-id
-              " | " (format "%30s" message))))
-    (cons format-string alert)))
+              " " host-name
+              " "
+              (propertize (format "%s" host-status)
+                'face (cond
+                        ((string= host-status "standby")
+                          'helm-mkr-host-status-standby)
+                        ((string= host-status "maintenance")
+                          'helm-mkr-host-status-maintenance)
+                        ((string= host-status "poweroff")
+                          'helm-mkr-host-status-poweroff)
+                        ((string= host-status "working")
+                          'helm-mkr-host-status-working)))
+              " " (format "%s" message))))
+    (cons format-string alert)
+    ))
 
 (defun mkr-sort-helm-rows (a b)
   "Compare results from `mkr-format-hosts-helm-row' A and B."
@@ -212,6 +269,15 @@ Argument ALERT is the mkr json in plist form."
                   mkr-orgs
                   "/hosts/"
                   (mkr-get-id-from-host host-json)))
+  )
+
+(defun mkr-browse-alert (alert-json)
+  "Browse mackerel.io from ALERT-JSON with `browse-url-browser-function'."
+  (browse-url (concat
+                "https://mackerel.io/orgs/"
+                mkr-orgs
+                "/alerts/"
+                (plist-get alert-json :id)))
   )
 
 (defun mkr-get-hosts ()
@@ -265,9 +331,24 @@ Argument ALERT is the mkr json in plist form."
                   (candidates . ,choices)
                   (candidate-number-limit . 99999)
                   (action . (
-                              ("Browse mackerel.io" .
+                              ("Browse Alert mackerel.io" .
                                 (lambda (alert-json)
-                                  (mkr-browse-alert alert-josn)))))
+                                  (mkr-browse-alert alert-josn)))
+                              ("Browse Host at mackerel.io" .
+                                (lambda (alert-json)
+                                  (browse-url (concat
+                                                "https://mackerel.io/orgs/"
+                                                mkr-orgs
+                                                "/hosts/"
+                                                (plist-get alert-json :hostId)))))
+                              ("Browse monitor at mackerel.io" .
+                                (lambda (alert-json)
+                                  (browse-url (concat
+                                                "https://mackerel.io/orgs/"
+                                                mkr-orgs
+                                                "/monitors#monitor="
+                                                (plist-get alert-json :monitorId)))))
+                              ))
                   ))))
 
 (provide 'helm-mkr)
