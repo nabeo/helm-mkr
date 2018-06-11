@@ -58,13 +58,13 @@
   "Face used for standby host in `helm-mkr'."
   :group 'helm-mkr-faces)
 
-(defface helm-mkr-host-state-maintenance
+(defface helm-mkr-host-status-maintenance
   '((t :inhertit font-lock-builtin-face
       :foreground "yellow"))
   "Face used for maintenance host in `helm-mkr'."
   :group 'helm-mkr-faces)
 
-(defface helm-mkr-host-state-poweroff
+(defface helm-mkr-host-status-poweroff
   '((t :inhertit font-lock-comment-face
       :slant italic
       :foreground "gray"))
@@ -383,7 +383,7 @@ Argument SERVICE is the mkr json in plist form."
                   (action . (
                               ("Browse Alert mackerel.io" .
                                 (lambda (alert-json)
-                                  (mkr-browse-alert alert-josn)))
+                                  (mkr-browse-alert alert-json)))
                               ("Browse Host at mackerel.io" .
                                 (lambda (alert-json)
                                   (browse-url (concat
@@ -406,7 +406,7 @@ Argument SERVICE is the mkr json in plist form."
   (interactive)
   (let ((choices (mkr-get-services)))
     (helm
-      :buffer "*helm-mkr-alert*"
+      :buffer "*helm-mkr-service*"
       :sources `(
                   (name . "Services")
                   (candidates . ,choices)
