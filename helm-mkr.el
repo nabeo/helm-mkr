@@ -180,10 +180,9 @@ Artgument INPUT json input in straing form."
   "Constracts a human-readable string of a host.
 show: <name>, <status>,  <create date>.
 Argument HOST is the mkr json in plist form."
-  (let* ((id (plist-get host :id))
+  (let* (
           (name (plist-get host :name))
           (status (plist-get host :status))
-          (retired-p (plist-get host :isRetired))
           (create-at (plist-get host :createdAt))
           (create-date (car (split-string create-at "T")))
           (format-string
@@ -208,7 +207,6 @@ Argument HOST is the mkr json in plist form."
 show: <create date time>, <alert status>, <hostname>, <message>.
 Argument ALERT is the mkr json in plist form."
   (let* (
-          (id (plist-get alert :id))
           (status (plist-get alert :status))
           (host-id (plist-get alert :hostId))
           (alert-type (plist-get alert :type))
