@@ -112,10 +112,6 @@
   "mkr services"
   "Command to get service list.")
 
-(defvar mkr-orgs
-  "default"
-  "Your mackerel org name.")
-
 (defun mkr-run-hosts-command ()
   "Execute mkr hosts."
   (let ((mkr-resut-buffer (generate-new-buffer-name "*mkr-hosts*")))
@@ -136,6 +132,27 @@
     (with-temp-buffer
       (shell-command mkr-services-command (current-buffer) nil)
       (buffer-substring-no-properties (point-min) (point-max)))))
+
+(defun helm-mkr-run-org ()
+  "Execute mkr org."
+  (with-temp-buffer
+    (shell-command-on-region (point-min) (point-max)
+      "mkr org" t)
+    (buffer-string)))
+
+(defun helm-mkr-parse-org (input)
+  "Extract org name, Argument INPUT json in straing form."
+  (let* ((json-object-type 'plist)
+          (helm-mkr-org-json (json-read-from-string input)))
+    helm-mkr-org-json))
+
+(defun helm-mkr-get-org-name ()
+  "Get org."
+  (let* (
+          (helm-mkr-command-result (helm-mkr-run-org))
+          (mkr-org-name-list (helm-mkr-parse-org helm-mkr-command-result))
+          (mkr-org-name (plist-get mkr-org-name-list :name)))
+    mkr-org-name))
 
 (defun mkr-run-status-command (host-id)
   "Execute mkr status HOST-ID."
@@ -299,7 +316,7 @@ Argument SERVICE is the mkr json in plist form."
   "Browse mackerel.io from HOST-JSON with `browse-url-browser-function'."
     (browse-url (concat
                   "https://mackerel.io/orgs/"
-                  mkr-orgs
+                  helm-mkr-get-org-name
                   "/hosts/"
                   (mkr-get-id-from-host host-json)))
   )
@@ -308,7 +325,7 @@ Argument SERVICE is the mkr json in plist form."
   "Browse mackerel.io from ALERT-JSON with `browse-url-browser-function'."
   (browse-url (concat
                 "https://mackerel.io/orgs/"
-                mkr-orgs
+                helm-mkr-get-org-name
                 "/alerts/"
                 (plist-get alert-json :id)))
   )
@@ -317,7 +334,7 @@ Argument SERVICE is the mkr json in plist form."
   "Browse mackerel.io from SERVICE-JSON with `browse-url-browser-function'."
   (browse-url (concat
                 "https://mackerel.io/orgs/"
-                mkr-orgs
+                helm-mkr-get-org-name
                 "/services/"
                 (plist-get service-json :name)))
   )
@@ -388,14 +405,14 @@ Argument SERVICE is the mkr json in plist form."
                                 (lambda (alert-json)
                                   (browse-url (concat
                                                 "https://mackerel.io/orgs/"
-                                                mkr-orgs
+                                                helm-mkr-get-org-name
                                                 "/hosts/"
                                                 (plist-get alert-json :hostId)))))
                               ("Browse monitor at mackerel.io" .
                                 (lambda (alert-json)
                                   (browse-url (concat
                                                 "https://mackerel.io/orgs/"
-                                                mkr-orgs
+                                                helm-mkr-get-org-name
                                                 "/monitors#monitor="
                                                 (plist-get alert-json :monitorId)))))
                               ))
